@@ -457,7 +457,7 @@ function renderReport() {
   catChartInst = new Chart(document.getElementById('catChart'), {
     type: 'bar',
     data: { labels: cats, datasets: [{ label: '支出', data: catTotals, backgroundColor: '#378ADD', borderRadius: 4 }] },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { font: { size: 11 }, autoSkip: false } }, y: { ticks: { callback: v => '$'+v } } } }
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { font: { size: 11 }, autoSkip: false } }, y: { ticks: { stepSize: 2000, callback: v => '$'+v.toLocaleString() }, beginAtZero: true } } }
   });
   if (personChartInst) personChartInst.destroy();
   personChartInst = new Chart(document.getElementById('personChart'), {
@@ -494,6 +494,5 @@ setTimeout(() => {
   if (firstLoad) { document.getElementById('loading').style.display = 'none'; firstLoad = false; }
 }, 5000);
 </script>
-
 </body>
 </html>
