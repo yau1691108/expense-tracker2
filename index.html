@@ -124,6 +124,30 @@
   .loading-spinner { width: 32px; height: 32px; border: 2px solid var(--border); border-top-color: var(--text); border-radius: 50%; animation: spin 0.8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .loading-text { font-size: 14px; color: var(--text2); }
+  .scan-mode-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+  .scan-mode-btn { padding: 11px; border: 0.5px solid var(--border2); border-radius: var(--radius); background: none; cursor: pointer; font-size: 14px; color: var(--text2); font-family: inherit; text-align: center; }
+  .scan-mode-btn.active { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 500; }
+  .scan-section { display: none; } .scan-section.active { display: block; }
+  .scan-upload-area { border: 1.5px dashed var(--border2); border-radius: var(--radius-lg); padding: 28px 16px; text-align: center; cursor: pointer; margin-bottom: 12px; background: var(--bg2); }
+  .scan-icon { font-size: 36px; margin-bottom: 8px; }
+  .scan-upload-label { font-size: 15px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+  .scan-upload-sub { font-size: 12px; color: var(--text2); }
+  .scan-preview { width: 100%; max-height: 180px; object-fit: contain; border-radius: var(--radius); margin-bottom: 12px; display: none; border: 0.5px solid var(--border); }
+  .scan-analyzing { display: none; align-items: center; gap: 10px; padding: 12px; background: var(--blue-light); border-radius: var(--radius); margin-bottom: 12px; }
+  .scan-analyzing.show { display: flex; }
+  .scan-analyzing-text { font-size: 14px; color: var(--blue-text); }
+  .scan-result { display: none; border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 14px 16px; margin-bottom: 12px; background: var(--bg2); }
+  .scan-result.show { display: block; }
+  .scan-result-title { font-size: 12px; color: var(--green); margin-bottom: 10px; font-weight: 500; }
+  .scan-result-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 0.5px solid var(--border); }
+  .scan-result-row:last-child { border-bottom: none; }
+  .scan-result-label { font-size: 12px; color: var(--text2); }
+  .scan-result-value { font-size: 14px; font-weight: 500; color: var(--text); }
+  .scan-error { display: none; background: #FEE2E2; border: 0.5px solid #FCA5A5; border-radius: var(--radius); padding: 12px; margin-bottom: 12px; font-size: 13px; color: var(--red); }
+  .scan-error.show { display: block; }
+  .scan-item-row { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; }
+  .scan-item-name { flex: 1; color: var(--text2); }
+  .scan-confirm-btn { width: 100%; padding: 14px; background: #3B6D11; color: #fff; border: none; border-radius: var(--radius); font-size: 16px; font-weight: 500; cursor: pointer; font-family: inherit; margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -152,6 +176,58 @@
 <div id="tab-add" class="section active">
   <div class="metric-grid" id="summary-metrics"></div>
   <div id="budget-alert" class="alert"></div>
+
+  <div class="scan-mode-toggle">
+    <button class="scan-mode-btn active" id="btn-mode-manual" onclick="switchAddMode('manual')">✏️ 手動輸入</button>
+    <button class="scan-mode-btn" id="btn-mode-scan" onclick="switchAddMode('scan')">📷 掃描發票</button>
+  </div>
+
+  <!-- 掃描發票 -->
+  <div class="scan-section" id="scan-section">
+    <div class="card" style="margin-bottom:12px">
+      <div class="card-title">算誰的</div>
+      <div class="person-toggle">
+        <button class="person-btn active-a" id="scan-btn-a" onclick="selectScanPerson('A')">● <span id="scan-name-a">伴侶 A</span></button>
+        <button class="person-btn" id="scan-btn-b" onclick="selectScanPerson('B')">● <span id="scan-name-b">伴侶 B</span></button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="scan-upload-area" onclick="document.getElementById('invoice-input').click()">
+        <div class="scan-icon">🧾</div>
+        <div class="scan-upload-label">拍攝或上傳發票</div>
+        <div class="scan-upload-sub">支援台灣統一發票、收據</div>
+      </div>
+      <input type="file" id="invoice-input" accept="image/*" capture="environment" style="display:none" onchange="handleInvoiceImage(event)">
+      <img id="scan-preview" class="scan-preview">
+      <div class="scan-analyzing" id="scan-analyzing">
+        <div class="loading-spinner" style="width:20px;height:20px;border-width:1.5px;flex-shrink:0"></div>
+        <div class="scan-analyzing-text">AI 辨識發票中，請稍候...</div>
+      </div>
+      <div class="scan-error" id="scan-error"></div>
+      <div class="scan-result" id="scan-result">
+        <div class="scan-result-title">✅ 辨識完成，請確認後儲存</div>
+        <div class="scan-result-row"><span class="scan-result-label">店家</span><span class="scan-result-value" id="res-store">-</span></div>
+        <div class="scan-result-row"><span class="scan-result-label">日期</span><span class="scan-result-value" id="res-date">-</span></div>
+        <div class="scan-result-row">
+          <span class="scan-result-label">類別</span>
+          <select id="res-cat" style="width:110px;padding:4px 8px;font-size:13px">
+            <option>飲食</option><option>交通</option><option>娛樂</option>
+            <option>醫療</option><option>日用品</option><option>服飾</option>
+            <option>水電帳單</option><option>其他</option>
+          </select>
+        </div>
+        <div class="scan-result-row">
+          <span class="scan-result-label">總金額</span>
+          <span class="scan-result-value" style="font-size:22px;color:var(--blue-dark)" id="res-amount">-</span>
+        </div>
+        <div id="res-items"></div>
+      </div>
+      <button class="scan-confirm-btn" id="scan-confirm-btn" style="display:none" onclick="confirmScanExpense()">✅ 確認儲存這筆支出</button>
+    </div>
+  </div>
+
+  <!-- 手動輸入 -->
+  <div class="scan-section active" id="manual-section">
   <div class="card">
     <div class="card-title">新增支出</div>
     <div class="form-full"><label>算誰的</label>
@@ -173,6 +249,7 @@
     <div class="form-full"><label>說明</label><input type="text" id="inp-desc" placeholder="例：超市採購"></div>
     <div class="form-full"><label>日期</label><input type="date" id="inp-date"></div>
     <button class="add-btn" onclick="addExpense()">新增支出</button>
+  </div>
   </div>
 </div>
 
@@ -301,6 +378,7 @@ function applySettings() {
   document.getElementById('set-budget-b').value = settings.budgetB || '';
   document.getElementById('name-a-btn').textContent = settings.nameA;
   document.getElementById('name-b-btn').textContent = settings.nameB;
+  updateScanNames();
 }
 
 function renderAll() {
@@ -486,6 +564,141 @@ window.saveSettings = async function() {
   await setDoc(doc(db, 'config', 'settings'), settings);
 }
 
+// ===== 發票掃描 =====
+const CLAUDE_API_KEY = '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';
+let scanPerson = 'A';
+let scannedData = null;
+
+window.switchAddMode = function(mode) {
+  document.getElementById('btn-mode-manual').classList.toggle('active', mode==='manual');
+  document.getElementById('btn-mode-scan').classList.toggle('active', mode==='scan');
+  document.getElementById('manual-section').classList.toggle('active', mode==='manual');
+  document.getElementById('scan-section').classList.toggle('active', mode==='scan');
+};
+
+window.selectScanPerson = function(p) {
+  scanPerson = p;
+  document.getElementById('scan-btn-a').className = 'person-btn' + (p==='A' ? ' active-a' : '');
+  document.getElementById('scan-btn-b').className = 'person-btn' + (p==='B' ? ' active-b' : '');
+};
+
+window.handleInvoiceImage = async function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  // 顯示預覽
+  const preview = document.getElementById('scan-preview');
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = 'block';
+  // 重置
+  document.getElementById('scan-result').classList.remove('show');
+  document.getElementById('scan-error').classList.remove('show');
+  document.getElementById('scan-confirm-btn').style.display = 'none';
+  scannedData = null;
+  // 開始辨識
+  document.getElementById('scan-analyzing').classList.add('show');
+  try {
+    const base64 = await fileToBase64(file);
+    const mediaType = file.type || 'image/jpeg';
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': CLAUDE_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+            { type: 'text', text: `這是一張台灣發票或收據，請辨識並回傳 JSON（只回傳 JSON，不要其他文字）：
+{
+  "store": "店家名稱（字串，找不到填空字串）",
+  "date": "發票日期（格式 YYYY-MM-DD，找不到填今天）",
+  "total": 總金額數字（整數，必填）,
+  "category": "推測類別，只能從這幾個選：飲食、交通、娛樂、醫療、日用品、服飾、水電帳單、其他",
+  "items": [{"name":"品項名稱","amount":金額}]
+}
+台灣發票日期格式是民國年，請轉換成西元年。總金額請找「總計」或「合計」欄位。` }
+          ]
+        }]
+      })
+    });
+    const data = await response.json();
+    document.getElementById('scan-analyzing').classList.remove('show');
+    if (!response.ok) throw new Error(data.error?.message || '辨識失敗');
+    const text = data.content.map(c => c.text || '').join('');
+    const clean = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+    scannedData = parsed;
+    // 填入結果
+    document.getElementById('res-store').textContent = parsed.store || '（未辨識）';
+    document.getElementById('res-date').textContent = parsed.date || todayStr();
+    document.getElementById('res-amount').textContent = '$' + (parsed.total || 0).toLocaleString();
+    // 類別
+    const catSel = document.getElementById('res-cat');
+    for (let i=0; i<catSel.options.length; i++) {
+      if (catSel.options[i].value === parsed.category) { catSel.selectedIndex = i; break; }
+    }
+    // 品項列表
+    const itemsEl = document.getElementById('res-items');
+    if (parsed.items && parsed.items.length > 0) {
+      itemsEl.innerHTML = '<div style="font-size:11px;color:var(--text2);margin-bottom:4px;margin-top:8px;border-top:0.5px solid var(--border);padding-top:8px">品項明細</div>' +
+        parsed.items.map(it => `<div class="scan-item-row"><span class="scan-item-name">${it.name}</span><span>$${(it.amount||0).toLocaleString()}</span></div>`).join('');
+    } else { itemsEl.innerHTML = ''; }
+    document.getElementById('scan-result').classList.add('show');
+    document.getElementById('scan-confirm-btn').style.display = 'block';
+    // 重置 input 讓同張票可再掃
+    event.target.value = '';
+  } catch(err) {
+    document.getElementById('scan-analyzing').classList.remove('show');
+    const errEl = document.getElementById('scan-error');
+    errEl.textContent = '⚠ 辨識失敗：' + err.message + '。請確認圖片清晰或改為手動輸入。';
+    errEl.classList.add('show');
+    event.target.value = '';
+  }
+};
+
+window.confirmScanExpense = async function() {
+  if (!scannedData) return;
+  const amount = scannedData.total;
+  if (!amount || amount <= 0) { alert('金額有誤，請手動輸入'); return; }
+  const cat = document.getElementById('res-cat').value;
+  const store = scannedData.store || '發票消費';
+  const date = scannedData.date || todayStr();
+  setSyncStatus('ing');
+  await addDoc(collection(db, 'expenses'), {
+    person: scanPerson, amount, cat,
+    desc: store || cat,
+    date, createdAt: Date.now(), source: 'scan'
+  });
+  // 重置掃描區
+  document.getElementById('scan-preview').style.display = 'none';
+  document.getElementById('scan-result').classList.remove('show');
+  document.getElementById('scan-confirm-btn').style.display = 'none';
+  scannedData = null;
+  alert('✅ 已儲存！');
+};
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// 同步掃描區名稱
+function updateScanNames() {
+  document.getElementById('scan-name-a').textContent = settings.nameA;
+  document.getElementById('scan-name-b').textContent = settings.nameB;
+}
+
+// ===== 初始化 =====
 document.getElementById('inp-date').value = todayStr();
 selectedDate = todayStr();
 loadSettings();
